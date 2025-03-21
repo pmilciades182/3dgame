@@ -35,7 +35,7 @@ function App() {
   return (
     <div className="menu-container">
       <div className="menu-content">
-        <h1>3D Game</h1>
+        <h1>Flappy 3D</h1>
         
         <div className="menu-section">
           <button className="menu-button" onClick={handleStartGame}>
