@@ -2,6 +2,7 @@ import { useRef, forwardRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
+import { logger } from '../debug/GameLogger'
 
 interface CharacterProps {
   speed?: number
@@ -19,22 +20,33 @@ export const Character = forwardRef<THREE.Group, CharacterProps>(({ speed = 1, o
   const rotationRef = useRef(0)
   const [, getKeys] = useKeyboardControls()
 
+  useEffect(() => {
+    logger.debug('character', 'Personaje inicializado', { speed });
+  }, [speed]);
+
   useFrame((state, delta) => {
     if (!characterRef.current) return
 
-    const { forward } = getKeys() // Usamos la tecla "forward" para saltar
+    const { forward } = getKeys()
     const character = characterRef.current
 
     // Aplicar gravedad
+    const prevVelocity = velocityRef.current;
     velocityRef.current += GRAVITY * delta
     velocityRef.current = Math.min(velocityRef.current, MAX_VELOCITY)
 
     // Salto
     if (forward) {
-      velocityRef.current = -JUMP_FORCE
+      velocityRef.current = -JUMP_FORCE;
+      logger.debug('character', 'Salto ejecutado', {
+        position: character.position.toArray(),
+        prevVelocity,
+        newVelocity: velocityRef.current
+      });
     }
 
     // Actualizar posición
+    const prevY = character.position.y;
     character.position.y -= velocityRef.current * delta
 
     // Rotar el personaje basado en la velocidad
@@ -47,7 +59,22 @@ export const Character = forwardRef<THREE.Group, CharacterProps>(({ speed = 1, o
 
     // Límites de la pantalla
     if (character.position.y < -10 || character.position.y > 10) {
+      logger.warning('character', 'Colisión con límites', {
+        position: character.position.toArray(),
+        velocity: velocityRef.current,
+        deltaY: character.position.y - prevY
+      });
       onCollision?.()
+    }
+
+    // Log de estado cada cierto intervalo
+    if (Math.random() < 0.01) { // Log aproximadamente cada 100 frames
+      logger.debug('character', 'Estado del personaje', {
+        position: character.position.toArray(),
+        velocity: velocityRef.current,
+        rotation: rotationRef.current,
+        deltaY: character.position.y - prevY
+      });
     }
   })
 

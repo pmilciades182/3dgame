@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { logger } from '../debug/GameLogger'
 
 interface TerrainProps {
   speed?: number
@@ -18,6 +19,10 @@ export function Terrain({ speed = 1, gapSize = 4, onCollision, onScore }: Terrai
   const pipesRef = useRef<THREE.Group[]>([])
   const scoreCheckRef = useRef<boolean[]>([])
 
+  useEffect(() => {
+    logger.debug('terrain', 'Terreno inicializado', { speed, gapSize });
+  }, [speed, gapSize]);
+
   // Crear geometrías compartidas
   const pipeGeometry = useMemo(() => new THREE.BoxGeometry(PIPE_WIDTH, PIPE_HEIGHT, PIPE_WIDTH), [])
   const pipeMaterial = useMemo(() => new THREE.MeshStandardMaterial({ 
@@ -34,6 +39,7 @@ export function Terrain({ speed = 1, gapSize = 4, onCollision, onScore }: Terrai
       const gap = (Math.random() - 0.5) * 10
       positions.push({ x, gap })
     }
+    logger.debug('terrain', 'Posiciones iniciales de tubos generadas', { positions });
     return positions
   }, [])
 
@@ -41,7 +47,17 @@ export function Terrain({ speed = 1, gapSize = 4, onCollision, onScore }: Terrai
     if (!groupRef.current) return
 
     // Mover los tubos hacia la izquierda
+    const prevX = groupRef.current.position.x;
     groupRef.current.position.x -= speed * 5 * delta
+
+    // Log de movimiento cada cierto intervalo
+    if (Math.random() < 0.01) { // Log aproximadamente cada 100 frames
+      logger.debug('terrain', 'Movimiento del terreno', {
+        position: groupRef.current.position.toArray(),
+        deltaX: groupRef.current.position.x - prevX,
+        speed
+      });
+    }
 
     // Reciclar tubos
     pipesRef.current.forEach((pipe, index) => {
@@ -56,14 +72,26 @@ export function Terrain({ speed = 1, gapSize = 4, onCollision, onScore }: Terrai
           return pos.x
         }))
         
-        pipe.position.x = lastPipeX + PIPE_SPACING
-        pipe.position.y = (Math.random() - 0.5) * 10
-        scoreCheckRef.current[index] = false
+        const newX = lastPipeX + PIPE_SPACING;
+        const newY = (Math.random() - 0.5) * 10;
+        pipe.position.x = newX;
+        pipe.position.y = newY;
+        scoreCheckRef.current[index] = false;
+
+        logger.debug('terrain', 'Tubo reciclado', {
+          index,
+          oldPosition: worldPosition.toArray(),
+          newPosition: [newX, newY, 0]
+        });
       }
 
       // Comprobar puntuación
       if (!scoreCheckRef.current[index] && worldPosition.x < 0) {
-        scoreCheckRef.current[index] = true
+        scoreCheckRef.current[index] = true;
+        logger.info('terrain', 'Punto obtenido', {
+          pipeIndex: index,
+          position: worldPosition.toArray()
+        });
         onScore?.()
       }
     })

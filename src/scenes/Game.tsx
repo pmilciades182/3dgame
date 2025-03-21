@@ -4,6 +4,8 @@ import { Suspense, useRef, useState, useEffect } from 'react'
 import { Terrain } from '../components/Terrain'
 import { Character } from '../components/Character'
 import * as THREE from 'three'
+import { logger } from '../debug/GameLogger'
+import { DebugOverlay } from '../debug/DebugOverlay'
 
 interface GameProps {
   settings: {
@@ -33,22 +35,32 @@ function Scene({ difficulty, onGameOver, onScoreChange }: SceneProps) {
   const [isGameOver, setIsGameOver] = useState(false)
   const scoreRef = useRef(0)
 
+  useEffect(() => {
+    logger.enable();
+    logger.info('game', 'Iniciando nueva partida', { difficulty });
+    return () => logger.disable();
+  }, [difficulty]);
+
   // Ajustar parámetros según la dificultad
   const getGameParameters = () => {
-    switch (difficulty) {
-      case 'easy':
-        return { speed: 0.8, gapSize: 5 }
-      case 'normal':
-        return { speed: 1, gapSize: 4 }
-      case 'hard':
-        return { speed: 1.2, gapSize: 3 }
-    }
+    const params = {
+      easy: { speed: 0.8, gapSize: 5 },
+      normal: { speed: 1, gapSize: 4 },
+      hard: { speed: 1.2, gapSize: 3 }
+    }[difficulty];
+    
+    logger.debug('game', 'Parámetros de juego configurados', params);
+    return params;
   }
 
   const gameParams = getGameParameters()
 
   const handleCollision = () => {
     if (!isGameOver) {
+      logger.warning('collision', 'Colisión detectada', {
+        position: characterRef.current?.position,
+        score: scoreRef.current
+      });
       setIsGameOver(true)
       onGameOver()
     }
@@ -57,6 +69,10 @@ function Scene({ difficulty, onGameOver, onScoreChange }: SceneProps) {
   const handleScore = () => {
     if (!isGameOver) {
       scoreRef.current += 1
+      logger.info('score', 'Punto obtenido', { 
+        newScore: scoreRef.current,
+        position: characterRef.current?.position 
+      });
       onScoreChange(scoreRef.current)
     }
   }
@@ -93,8 +109,16 @@ export function Game({ settings, onExit }: GameProps) {
     return saved ? parseInt(saved) : 0
   })
 
+  useEffect(() => {
+    logger.info('game', 'Configuración del juego cargada', settings);
+  }, [settings]);
+
   const handleGameOver = () => {
     if (currentScore > highScore) {
+      logger.info('score', 'Nuevo récord establecido', {
+        oldHighScore: highScore,
+        newHighScore: currentScore
+      });
       setHighScore(currentScore)
       localStorage.setItem('highScore', currentScore.toString())
     }
@@ -102,6 +126,7 @@ export function Game({ settings, onExit }: GameProps) {
   }
 
   const handleRestart = () => {
+    logger.info('game', 'Reiniciando partida');
     setCurrentScore(0)
     setShowGameOver(false)
   }
@@ -112,12 +137,14 @@ export function Game({ settings, onExit }: GameProps) {
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
-      <KeyboardControls<Controls>
+      <KeyboardControls
         map={controls}
         onChange={(name, pressed) => {
           if (name === 'exit' && pressed) {
+            logger.info('input', 'Saliendo del juego');
             onExit()
           }
+          logger.debug('input', 'Control activado', { name, pressed });
         }}
       >
         <Canvas camera={{ position: [0, 0, 20], fov: 75, near: 0.1, far: 1000 }}>
@@ -157,6 +184,8 @@ export function Game({ settings, onExit }: GameProps) {
           </div>
         </div>
       )}
+
+      <DebugOverlay />
     </div>
   )
 } 

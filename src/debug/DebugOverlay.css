@@ -1,0 +1,103 @@
+.debug-toggle-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #00ff00;
+  border: 1px solid #00ff00;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: monospace;
+}
+
+.debug-overlay {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 600px;
+  max-height: 80vh;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid #00ff00;
+  border-radius: 5px;
+  padding: 10px;
+  z-index: 9998;
+  font-family: monospace;
+  color: #00ff00;
+}
+
+.debug-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #00ff00;
+}
+
+.debug-controls select,
+.debug-controls button {
+  background: rgba(0, 0, 0, 0.8);
+  color: #00ff00;
+  border: 1px solid #00ff00;
+  border-radius: 3px;
+  padding: 5px 10px;
+  font-family: monospace;
+}
+
+.debug-log-container {
+  overflow-y: auto;
+  max-height: calc(80vh - 100px);
+}
+
+.debug-log-entry {
+  padding: 5px;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+  font-size: 12px;
+}
+
+.debug-timestamp {
+  color: #888;
+  margin-right: 10px;
+}
+
+.debug-level {
+  margin-right: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.debug-level-info {
+  color: #00ff00;
+}
+
+.debug-level-warning {
+  color: #ffff00;
+}
+
+.debug-level-error {
+  color: #ff0000;
+}
+
+.debug-level-debug {
+  color: #00ffff;
+}
+
+.debug-category {
+  color: #ff00ff;
+  margin-right: 10px;
+}
+
+.debug-message {
+  color: #ffffff;
+}
+
+.debug-data {
+  margin-top: 5px;
+  padding: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  white-space: pre-wrap;
+  font-size: 11px;
+  color: #888;
+} 
