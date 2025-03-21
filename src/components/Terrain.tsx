@@ -1,68 +1,122 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-const GRID_SIZE = 20
-const CELL_SIZE = 2
-const GRID_DIVISIONS = GRID_SIZE / CELL_SIZE
+interface TerrainProps {
+  speed?: number
+  gapSize?: number
+  onCollision?: () => void
+  onScore?: () => void
+}
 
-export function Terrain() {
-  // Crear la geometría del plano base
-  const planeGeometry = useMemo(() => {
-    return new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE, GRID_DIVISIONS, GRID_DIVISIONS)
+const PIPE_SPACING = 15
+const PIPE_WIDTH = 2
+const PIPE_HEIGHT = 20
+
+export function Terrain({ speed = 1, gapSize = 4, onCollision, onScore }: TerrainProps) {
+  const groupRef = useRef<THREE.Group>(null)
+  const pipesRef = useRef<THREE.Group[]>([])
+  const scoreCheckRef = useRef<boolean[]>([])
+
+  // Crear geometrías compartidas
+  const pipeGeometry = useMemo(() => new THREE.BoxGeometry(PIPE_WIDTH, PIPE_HEIGHT, PIPE_WIDTH), [])
+  const pipeMaterial = useMemo(() => new THREE.MeshStandardMaterial({ 
+    color: '#00ff87',
+    metalness: 0.5,
+    roughness: 0.3,
+  }), [])
+
+  // Generar posiciones iniciales de los tubos
+  const pipePositions = useMemo(() => {
+    const positions = []
+    for (let i = 0; i < 5; i++) {
+      const x = i * PIPE_SPACING
+      const gap = (Math.random() - 0.5) * 10
+      positions.push({ x, gap })
+    }
+    return positions
   }, [])
 
-  // Crear la geometría de la cuadrícula
-  const gridGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry()
-    const vertices = []
+  useFrame((state, delta) => {
+    if (!groupRef.current) return
 
-    // Crear líneas horizontales
-    for (let i = 0; i <= GRID_SIZE; i += CELL_SIZE) {
-      vertices.push(-GRID_SIZE/2, 0, i - GRID_SIZE/2)
-      vertices.push(GRID_SIZE/2, 0, i - GRID_SIZE/2)
-    }
+    // Mover los tubos hacia la izquierda
+    groupRef.current.position.x -= speed * 5 * delta
 
-    // Crear líneas verticales
-    for (let i = 0; i <= GRID_SIZE; i += CELL_SIZE) {
-      vertices.push(i - GRID_SIZE/2, 0, -GRID_SIZE/2)
-      vertices.push(i - GRID_SIZE/2, 0, GRID_SIZE/2)
-    }
+    // Reciclar tubos
+    pipesRef.current.forEach((pipe, index) => {
+      const worldPosition = new THREE.Vector3()
+      pipe.getWorldPosition(worldPosition)
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-    return geometry
-  }, [])
+      if (worldPosition.x < -20) {
+        // Mover el tubo al final
+        const lastPipeX = Math.max(...pipesRef.current.map(p => {
+          const pos = new THREE.Vector3()
+          p.getWorldPosition(pos)
+          return pos.x
+        }))
+        
+        pipe.position.x = lastPipeX + PIPE_SPACING
+        pipe.position.y = (Math.random() - 0.5) * 10
+        scoreCheckRef.current[index] = false
+      }
+
+      // Comprobar puntuación
+      if (!scoreCheckRef.current[index] && worldPosition.x < 0) {
+        scoreCheckRef.current[index] = true
+        onScore?.()
+      }
+    })
+  })
 
   return (
-    <group>
-      {/* Plano base */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <primitive object={planeGeometry} />
-        <meshStandardMaterial
-          color="#8eb8e5"
-          roughness={0.8}
-          metalness={0.2}
-        />
+    <group ref={groupRef}>
+      {/* Fondo */}
+      <mesh position={[0, 0, -10]} receiveShadow>
+        <planeGeometry args={[1000, 1000]} />
+        <meshStandardMaterial color="#87ceeb" />
       </mesh>
 
-      {/* Cuadrícula */}
-      <lineSegments rotation={[-Math.PI / 2, 0, 0]}>
-        <primitive object={gridGeometry} />
-        <lineBasicMaterial color="#ffffff" opacity={0.2} transparent />
-      </lineSegments>
+      {/* Tubos */}
+      {pipePositions.map((pos, i) => (
+        <group key={i} position={[pos.x, pos.gap, 0]} ref={el => el && (pipesRef.current[i] = el)}>
+          {/* Tubo superior */}
+          <group position={[0, gapSize + PIPE_HEIGHT/2, 0]}>
+            <mesh
+              geometry={pipeGeometry}
+              material={pipeMaterial}
+              castShadow
+              receiveShadow
+            />
+            {/* Borde del tubo superior */}
+            <mesh position={[0, -PIPE_HEIGHT/2, 0]}>
+              <cylinderGeometry args={[PIPE_WIDTH * 0.7, PIPE_WIDTH * 0.7, 1, 32]} />
+              <meshStandardMaterial color="#00cc6a" />
+            </mesh>
+          </group>
 
-      {/* Elementos decorativos */}
-      {Array.from({ length: 10 }).map((_, i) => (
-        <group key={i} position={[
-          (Math.random() - 0.5) * GRID_SIZE * 0.8,
-          0.5,
-          (Math.random() - 0.5) * GRID_SIZE * 0.8
-        ]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[0.5, 1, 0.5]} />
-            <meshStandardMaterial color="#4a6670" />
-          </mesh>
+          {/* Tubo inferior */}
+          <group position={[0, -gapSize - PIPE_HEIGHT/2, 0]}>
+            <mesh
+              geometry={pipeGeometry}
+              material={pipeMaterial}
+              castShadow
+              receiveShadow
+            />
+            {/* Borde del tubo inferior */}
+            <mesh position={[0, PIPE_HEIGHT/2, 0]}>
+              <cylinderGeometry args={[PIPE_WIDTH * 0.7, PIPE_WIDTH * 0.7, 1, 32]} />
+              <meshStandardMaterial color="#00cc6a" />
+            </mesh>
+          </group>
         </group>
       ))}
+
+      {/* Suelo */}
+      <mesh position={[0, -15, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[1000, 100]} />
+        <meshStandardMaterial color="#8b4513" />
+      </mesh>
     </group>
   )
 } 

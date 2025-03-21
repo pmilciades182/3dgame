@@ -1,44 +1,101 @@
-import { Canvas } from '@react-three/fiber'
-import { Environment, KeyboardControls } from '@react-three/drei'
-import { Suspense, useRef } from 'react'
-import { Terrain } from './components/Terrain'
-import { Character } from './components/Character'
-import { FollowCamera } from './components/FollowCamera'
-import * as THREE from 'three'
+import { useState } from 'react'
+import { Game } from './scenes/Game'
+import './App.css'
 
-const controls = [
-  { name: 'forward', keys: ['ArrowUp', 'w'] },
-  { name: 'backward', keys: ['ArrowDown', 's'] },
-  { name: 'left', keys: ['ArrowLeft', 'a'] },
-  { name: 'right', keys: ['ArrowRight', 'd'] },
-]
+type Difficulty = 'easy' | 'normal' | 'hard'
 
-function Scene() {
-  const characterRef = useRef<THREE.Group>(null)
-
-  return (
-    <>
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[5, 5, 5]} intensity={1} />
-      <directionalLight position={[-5, 5, -5]} intensity={0.5} />
-      <Terrain />
-      <Character ref={characterRef} />
-      <FollowCamera target={characterRef.current} />
-      <Environment preset="sunset" />
-    </>
-  )
+interface GameSettings {
+  difficulty: Difficulty
+  soundEnabled: boolean
+  musicVolume: number
+  effectsVolume: number
 }
 
 function App() {
+  const [currentScreen, setCurrentScreen] = useState<'menu' | 'game'>('menu')
+  const [settings, setSettings] = useState<GameSettings>({
+    difficulty: 'normal',
+    soundEnabled: true,
+    musicVolume: 0.7,
+    effectsVolume: 0.8
+  })
+
+  const handleStartGame = () => {
+    setCurrentScreen('game')
+  }
+
+  const handleSettingsChange = (newSettings: Partial<GameSettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }))
+  }
+
+  if (currentScreen === 'game') {
+    return <Game settings={settings} onExit={() => setCurrentScreen('menu')} />
+  }
+
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <KeyboardControls map={controls}>
-        <Canvas camera={{ position: [0, 5, 10], fov: 75, near: 0.1, far: 1000 }}>
-          <Suspense fallback={null}>
-            <Scene />
-          </Suspense>
-        </Canvas>
-      </KeyboardControls>
+    <div className="menu-container">
+      <div className="menu-content">
+        <h1>3D Game</h1>
+        
+        <div className="menu-section">
+          <button className="menu-button" onClick={handleStartGame}>
+            Iniciar Juego
+          </button>
+        </div>
+
+        <div className="menu-section">
+          <h2>Dificultad</h2>
+          <div className="difficulty-buttons">
+            {(['easy', 'normal', 'hard'] as const).map(diff => (
+              <button
+                key={diff}
+                className={`difficulty-button ${settings.difficulty === diff ? 'active' : ''}`}
+                onClick={() => handleSettingsChange({ difficulty: diff })}
+              >
+                {diff === 'easy' ? 'Fácil' : diff === 'normal' ? 'Normal' : 'Difícil'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="menu-section">
+          <h2>Configuración de Sonido</h2>
+          <div className="sound-settings">
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.soundEnabled}
+                onChange={e => handleSettingsChange({ soundEnabled: e.target.checked })}
+              />
+              Sonido Activado
+            </label>
+            
+            <div className="volume-control">
+              <span>Música</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={settings.musicVolume}
+                onChange={e => handleSettingsChange({ musicVolume: parseFloat(e.target.value) })}
+              />
+            </div>
+
+            <div className="volume-control">
+              <span>Efectos</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={settings.effectsVolume}
+                onChange={e => handleSettingsChange({ effectsVolume: parseFloat(e.target.value) })}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

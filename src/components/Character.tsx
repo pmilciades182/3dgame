@@ -3,47 +3,52 @@ import { useFrame } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 
-const MOVEMENT_SPEED = 5
-const ROTATION_SPEED = 5
-const LERP_FACTOR = 0.1
+interface CharacterProps {
+  speed?: number
+  onCollision?: () => void
+  onScore?: () => void
+}
 
-export const Character = forwardRef<THREE.Group>((props, ref) => {
+const GRAVITY = 15
+const JUMP_FORCE = 8
+const MAX_VELOCITY = 10
+
+export const Character = forwardRef<THREE.Group, CharacterProps>(({ speed = 1, onCollision, onScore }, ref) => {
   const characterRef = useRef<THREE.Group>(null)
-  const velocityRef = useRef(new THREE.Vector3())
-  const targetRotationRef = useRef(0)
-
+  const velocityRef = useRef(0)
+  const rotationRef = useRef(0)
   const [, getKeys] = useKeyboardControls()
 
   useFrame((state, delta) => {
     if (!characterRef.current) return
 
-    const { forward, backward, left, right } = getKeys()
+    const { forward } = getKeys() // Usamos la tecla "forward" para saltar
     const character = characterRef.current
 
-    // Calcular dirección de movimiento
-    const moveDirection = new THREE.Vector3()
-    if (forward) moveDirection.z -= 1
-    if (backward) moveDirection.z += 1
-    if (left) moveDirection.x -= 1
-    if (right) moveDirection.x += 1
-    moveDirection.normalize()
+    // Aplicar gravedad
+    velocityRef.current += GRAVITY * delta
+    velocityRef.current = Math.min(velocityRef.current, MAX_VELOCITY)
 
-    // Actualizar rotación objetivo
-    if (moveDirection.length() > 0) {
-      targetRotationRef.current = Math.atan2(moveDirection.x, moveDirection.z)
+    // Salto
+    if (forward) {
+      velocityRef.current = -JUMP_FORCE
     }
 
-    // Aplicar rotación suave
-    const currentRotation = character.rotation.y
-    const rotationDiff = targetRotationRef.current - currentRotation
-    character.rotation.y += rotationDiff * LERP_FACTOR * ROTATION_SPEED * delta
+    // Actualizar posición
+    character.position.y -= velocityRef.current * delta
 
-    // Actualizar velocidad con aceleración suave
-    const targetVelocity = moveDirection.multiplyScalar(MOVEMENT_SPEED)
-    velocityRef.current.lerp(targetVelocity, LERP_FACTOR)
+    // Rotar el personaje basado en la velocidad
+    const targetRotation = THREE.MathUtils.clamp(velocityRef.current * 0.2, -Math.PI / 4, Math.PI / 4)
+    rotationRef.current = THREE.MathUtils.lerp(rotationRef.current, targetRotation, 0.1)
+    character.rotation.z = rotationRef.current
 
-    // Aplicar movimiento
-    character.position.add(velocityRef.current.clone().multiplyScalar(delta))
+    // Mover automáticamente hacia adelante
+    character.position.x += speed * 5 * delta
+
+    // Límites de la pantalla
+    if (character.position.y < -10 || character.position.y > 10) {
+      onCollision?.()
+    }
   })
 
   useEffect(() => {
@@ -58,9 +63,24 @@ export const Character = forwardRef<THREE.Group>((props, ref) => {
 
   return (
     <group ref={characterRef}>
+      {/* Cuerpo principal */}
       <mesh castShadow>
-        <boxGeometry args={[1, 1, 1]} />
+        <sphereGeometry args={[0.5, 32, 32]} />
         <meshStandardMaterial color="#4287f5" />
+      </mesh>
+      {/* Alas */}
+      <mesh position={[0, 0.3, 0.4]} rotation={[0, 0, Math.PI / 4]}>
+        <boxGeometry args={[0.6, 0.1, 0.2]} />
+        <meshStandardMaterial color="#2d6ed9" />
+      </mesh>
+      <mesh position={[0, 0.3, -0.4]} rotation={[0, 0, Math.PI / 4]}>
+        <boxGeometry args={[0.6, 0.1, 0.2]} />
+        <meshStandardMaterial color="#2d6ed9" />
+      </mesh>
+      {/* Cola */}
+      <mesh position={[-0.4, 0, 0]} rotation={[0, 0, Math.PI / 6]}>
+        <boxGeometry args={[0.4, 0.1, 0.3]} />
+        <meshStandardMaterial color="#2d6ed9" />
       </mesh>
     </group>
   )
